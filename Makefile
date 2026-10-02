@@ -8,7 +8,7 @@
 SRC_DIR         ?= src
 TEST_DIR        ?= tests
 DOCS_DIR        ?= docs
-MODULE_NAME     ?= {{PYTHON_MODULE_NAME}}
+MODULE_NAME     ?= ds_provider_aic_py_lib
 
 # Colors for terminal output
 BLUE := \033[0;34m
@@ -52,6 +52,10 @@ type-check: ## Type-check with mypy
 .PHONY: security-check
 security-check: ## Run security checks (bandit)
 	uv run bandit -r $(SRC_DIR) || true
+
+.PHONY: check
+check: lint format type-check security-check ## Run all checks
+	@echo "All checks passed"
 
 # ===== Tests =====
 
