@@ -30,7 +30,7 @@ autoapi_dirs = ["../../src"]
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "ds-provider-aic-py-lib"
-copyright = "2025, Aider AS"
+copyright = "2026, Aider AS"
 author = "Kristopy"
 
 try:

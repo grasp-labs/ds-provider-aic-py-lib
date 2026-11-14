@@ -1,0 +1,17 @@
+package-name: aic
+name: aic
+description: AIC provider for identity sign-in and read-only gold datasets
+
+linked_service:
+  - name: AIC Identity
+    type: ds.resource.linked-service.aic-identity
+    version: 1.0.0
+    description: Identity server session for client credentials or username and password
+    class_name: ds_provider_aic_py_lib.linked_service.identity.AICIdentityLinkedService
+
+dataset:
+  - name: AIC Gold
+    type: ds.resource.dataset.aic-gold
+    version: 1.0.0
+    description: Read-only gold dataset served by the fetch API
+    class_name: ds_provider_aic_py_lib.dataset.gold.AICGoldDataset

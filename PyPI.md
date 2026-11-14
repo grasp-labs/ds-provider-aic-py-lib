@@ -1,6 +1,6 @@
 # ds-provider-aic-py-lib
 
-A Python package from the ds-common library collection.
+DS package for ds-provider-aic-py-lib
 
 ## Installation
 
@@ -19,39 +19,83 @@ uv pip install ds-provider-aic-py-lib
 ## Quick Start
 
 ```python
-from ds_provider_aic_py_lib import __version__
+from uuid import uuid4
 
-print(f"ds-provider-aic-py-lib version: {__version__}")
+from ds_protocol_http_py_lib.enums import AuthType
+
+from ds_provider_aic_py_lib.dataset.gold import (
+    AICGoldDataset,
+    AICGoldDatasetSettings,
+    GoldReadSettings,
+)
+from ds_provider_aic_py_lib.enums import HistoryMode, PublishMode
+from ds_provider_aic_py_lib.linked_service.identity import (
+    AICIdentityLinkedService,
+    AICIdentityLinkedServiceSettings,
+    AICIdentityOAuth2AuthSettings,
+)
+
+linked_service = AICIdentityLinkedService(
+    id=uuid4(),
+    name="aic-identity",
+    version="v1.0.0",
+    settings=AICIdentityLinkedServiceSettings(
+        auth_type=AuthType.OAUTH2,
+        oauth2=AICIdentityOAuth2AuthSettings(
+            client_id="client",
+            client_secret="secret",
+        ),
+    ),
+)
+dataset = AICGoldDataset(
+    id=uuid4(),
+    name="employees",
+    version="v1.0.0",
+    linked_service=linked_service,
+    settings=AICGoldDatasetSettings(
+        publish_mode=PublishMode.UPSERT,
+        primary_key_fields=["employee_id"],
+        history_mode=HistoryMode.SCD2,
+        partition_keys=[],
+        read=GoldReadSettings(sql="SELECT count(*) AS n FROM gold"),
+    ),
+)
+linked_service.connect()
+dataset.read()
+dataset.output
 ```
 
 ## Features
 
-<!-- List your package features here -->
-- Feature 1: Description of feature 1
-- Feature 2: Description of feature 2
-- Feature 3: Description of feature 3
+- Identity linked service with OAuth2 client credentials and
+  username/password login
+- Read-only gold dataset over the fetch API
+- SQL is required. Name this dataset `gold`. `read()` cannot read
+  another dataset
+- `read()` deserializes each query page with `FetchQueryDeserializer`
 
 ## Usage
 
-<!-- Add usage examples here -->
+Gold mutation is not supported. `create`, `update`, `upsert`, `delete`,
+`purge`, and `rename` raise `NotSupportedError`.
 
-```python
-# Example usage
-import ds_provider_aic_py_lib
-
-# Your code examples here
-```
+The repository `examples/` scripts read credentials from `.env`.
+They are not installed with the package.
 
 ## Requirements
 
 - Python 3.11 or higher
-- <!-- List any required dependencies -->
+- `ds-resource-plugin-py-lib`
+- `ds-protocol-http-py-lib`
+- `ds-common-serde-py-lib`
+- `pandas`
+- `pyarrow`
 
 ## Optional Dependencies
 
-<!-- List optional dependencies if any -->
-- Optional dependency 1: Description
-- Optional dependency 2: Description
+- `dev`: lint, types, tests, docs, and `python-dotenv` for the examples
+- `test`: pytest
+- `docs`: Sphinx
 
 ## Documentation
 
