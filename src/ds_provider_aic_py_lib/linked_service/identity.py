@@ -20,8 +20,6 @@ from ds_protocol_http_py_lib.linked_service.http import (
 
 from ..enums import ResourceType
 
-_FETCH_URL = "https://grasp-daas.com/api/fetch/v1"
-
 
 @dataclass(kw_only=True)
 class AICIdentityOAuth2AuthSettings(OAuth2AuthSettings):
@@ -31,7 +29,6 @@ class AICIdentityOAuth2AuthSettings(OAuth2AuthSettings):
     Attributes:
         token_endpoint: The URL to obtain the OAuth2 token.
         scope: Scopes sent on the token request.
-        data: Extra form fields. ``resource`` is the fetch API.
     """
 
     token_endpoint: str = field(default="https://auth.grasp-daas.com/oauth/token/")
@@ -39,9 +36,6 @@ class AICIdentityOAuth2AuthSettings(OAuth2AuthSettings):
 
     scope: str | None = "openid read"
     """OAuth2 scope. Default is 'openid read'."""
-
-    data: dict[str, str] | None = field(default_factory=lambda: {"resource": _FETCH_URL})
-    """Extra token fields. Default resource is the production fetch API."""
 
 
 @dataclass(kw_only=True)

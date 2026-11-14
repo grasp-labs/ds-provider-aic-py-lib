@@ -31,12 +31,12 @@ def test_settings_defaults() -> None:
 
 
 def test_oauth2_and_bearer_defaults() -> None:
-    """Token endpoints and the fetch resource are the production defaults."""
+    """Token endpoints are the production defaults. No API resource is chosen."""
     oauth2 = AICIdentityOAuth2AuthSettings(client_id="client", client_secret="secret")
     bearer = AICIdentityBearerAuthSettings(username="user@example.com", password="secret")
     assert oauth2.token_endpoint == "https://auth.grasp-daas.com/oauth/token/"
     assert oauth2.scope == "openid read"
-    assert oauth2.data == {"resource": "https://grasp-daas.com/api/fetch/v1"}
+    assert oauth2.data is None
     assert bearer.token_endpoint == "https://auth.grasp-daas.com/auth/login/"
     assert bearer.username_key_name == "email"
 

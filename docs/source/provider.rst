@@ -13,8 +13,8 @@ Identity linked service
 * ``auth_type="Bearer"`` posts ``username`` and ``password`` to
   ``https://auth.grasp-daas.com/auth/login/``. ``username`` is the account email.
 * ``auth_type="OAuth2"`` uses client credentials against
-  ``https://auth.grasp-daas.com/oauth/token/``. The default ``resource`` is the
-  production fetch API.
+  ``https://auth.grasp-daas.com/oauth/token/``. The token request sends
+  ``client_id``, ``client_secret``, ``scope``, and ``grant_type``.
 
 ``connect()`` and ``test_connection()`` are the HTTP protocol methods.
 
