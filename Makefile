@@ -20,7 +20,7 @@ NC := \033[0m # No Color
 
 .PHONY: help
 help: ## Show this help message
-	@echo "$(BLUE)DS Shared Logger - Development Commands$(NC)"
+	@echo "$(BLUE)ds-provider-aic-py-lib - Development Commands$(NC)"
 	@echo ""
 	@echo "$(GREEN)Available commands:$(NC)"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST)
