@@ -6,7 +6,14 @@
 [![codecov](https://codecov.io/gh/grasp-labs/ds-provider-aic-py-lib/graph/badge.svg?token=EO3YCNCZFS)](https://codecov.io/gh/grasp-labs/ds-provider-aic-py-lib)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-DS package for ds-provider-aic-py-lib
+Read-only AIC gold datasets and an identity linked service for the fetch API.
+
+Sign in with OAuth2 client credentials or with a username and password.
+``AICGoldDataset.read()`` requires SQL. Pagination stays inside that
+call, and ``output`` is the full frame.
+Gold mutation methods are not supported.
+
+See [the provider guide](docs/source/provider.rst) for exposed and internal fields.
 
 ## Quick Start
 
@@ -67,10 +74,9 @@ make tag           # Create git tag and push (triggers release)
 
 ### Pre-commit Hooks
 
-This project uses pre-commit hooks to ensure code quality:
-
 ```shell
-install pre-commit
+uv run pre-commit install
+uv run pre-commit run --all-files
 ```
 
 ### Building Documentation
@@ -95,35 +101,38 @@ make test
 # Run tests with coverage (requires 95% coverage)
 make test-cov
 
-# Run specific test file
-uv run pytest tests/test_example.py -v
+# Run one test module
+uv run pytest tests/dataset/test_gold.py -v
 ```
 
 ## Project Structure
 
 ```text
 .
-├── .config/                   # Configuration tooling files
-├── .github/
-│   ├── workflows/            # CI/CD workflows
-│   └── CODEOWNERS            # Code ownership file
-├── src/
-│   └── ds_provider_aic_py_lib/     # Python package source
-│       └── __init__.py
-├── .pre-commit-config.yaml   # Pre-commit hooks configuration
-├── tests/                    # Test files
-├── docs/                     # Sphinx documentation
-├── LICENSE-APACHE            # License file
-├── pyproject.toml            # Project configuration
-├── Makefile                  # Development commands
-├── codecov.yaml              # Codecov configuration
-├── CONTRIBUTING.md           # Contribution guidelines
-├── PyPI.md                   # PyPI publishing guide
-├── README.md                 # This file
+├── .config/                         # Tooling config
+├── .github/                         # CI workflows
+├── docs/source/                     # Sphinx pages
+├── examples/                        # Live scripts, credentials from .env
+├── src/ds_provider_aic_py_lib/
+│   ├── dataset/                     # Read-only gold dataset
+│   ├── linked_service/              # AIC identity session
+│   ├── serde/                       # Fetch query deserializer
+│   ├── enums.py
+│   └── resource.yaml                # Provider registration
+├── tests/
+├── CONTRIBUTING.md
+├── Makefile
+├── PyPI.md                          # Package readme published to PyPI
+├── README.md
+└── pyproject.toml
 ```
 
 ## Features
 
+- **Identity linked service**: Client credentials and username/password
+  through the HTTP protocol, with AIC defaults
+- **Read-only gold dataset**: Required SQL, with pagination inside ``read()``
+- **Fetch deserializer**: Query pages become frames with DuckDB dtypes
 - **Modern Python Tooling**: Uses `uv` for fast dependency management
 - **Type Safety**: Strict mypy configuration with full type hints
 - **Code Quality**: Ruff for linting and formatting
@@ -131,7 +140,18 @@ uv run pytest tests/test_example.py -v
 - **Documentation**: Sphinx with autoapi for automatic API docs
 - **CI/CD**: GitHub Actions for testing, building, and publishing
 - **Pre-commit Hooks**: Automated code quality checks
-- **Docker Support**: Containerized build environment
+
+## Examples
+
+Copy `.env.example` to `.env` and fill in credentials.
+
+```shell
+uv run --extra dev python examples/01_linked_service_client_credentials.py
+uv run --extra dev python examples/02_linked_service_password.py
+uv run --extra dev python examples/03_dataset_gold_read.py
+uv run --extra dev python examples/04_dataset_gold_list.py
+uv run --extra dev python examples/05_dataset_gold_parallel_read.py
+```
 
 ## Requirements
 
@@ -142,7 +162,7 @@ uv run pytest tests/test_example.py -v
 ## Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
-- [PyPI.md](PyPI.md) - PyPI publishing guide
+- [PyPI.md](PyPI.md) - Package readme published to PyPI
 - [README.md](README.md) - This file
 
 ## License
