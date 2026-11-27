@@ -73,8 +73,10 @@ dataset.output
 - SQL is required. Name this dataset `gold`. That name is rewritten to
   this dataset id. A quoted reference to another dataset is rejected
   here. Fetch grants decide any other name
-- A result that spans more than one page needs `ORDER BY` so later
-  pages keep a stable row order
+- A resumed `read()` returns only the pages from the saved offset. The
+  caller keeps earlier pages and the same SQL in settings
+- A result that spans more than one page needs `ORDER BY`. Without it,
+  later pages can skip or repeat rows, and `read()` logs a warning
 - `read()` deserializes each query page with `FetchQueryDeserializer`
 
 ## Usage

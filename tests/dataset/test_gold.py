@@ -8,6 +8,7 @@ Unit tests for the read-only AIC gold dataset.
 from __future__ import annotations
 
 import json
+import logging
 from unittest.mock import MagicMock
 from uuid import UUID
 
@@ -18,7 +19,7 @@ from ds_resource_plugin_py_lib.common.resource.errors import NotSupportedError
 from ds_resource_plugin_py_lib.common.resource.linked_service.errors import ConnectionError
 
 from ds_provider_aic_py_lib.dataset.gold import AICGoldDataset, AICGoldDatasetSettings, GoldListSettings, GoldReadSettings
-from ds_provider_aic_py_lib.dataset.utils.sql import statement
+from ds_provider_aic_py_lib.dataset.utils.sql import has_order_by, statement
 from ds_provider_aic_py_lib.enums import HistoryMode, Layer, PublishMode, ResourceType
 from ds_provider_aic_py_lib.linked_service.identity import (
     AICIdentityLinkedService,
@@ -129,6 +130,21 @@ def test_statement_keeps_a_trailing_line_comment() -> None:
     assert statement("SELECT * FROM gold", 0) == "SELECT * FROM gold"
 
 
+@pytest.mark.parametrize(
+    ("sql", "ordered"),
+    [
+        ("SELECT * FROM gold ORDER BY id", True),
+        ("select * from gold order   by id", True),
+        ("SELECT * FROM gold", False),
+        ("SELECT * FROM gold WHERE note = 'ORDER BY'", False),
+        ("SELECT * FROM gold -- ORDER BY id", False),
+    ],
+)
+def test_has_order_by_ignores_strings_and_line_comments(sql: str, ordered: bool) -> None:
+    """``ORDER BY`` counts only as a clause, not inside a string or a line comment."""
+    assert has_order_by(sql) is ordered
+
+
 def test_read_requires_sql() -> None:
     """read() does not invent a statement."""
     dataset = _dataset(read=None)
@@ -151,7 +167,7 @@ def test_read_yields_one_page_when_fetch_is_complete() -> None:
 
 
 def test_read_follows_truncated_pages_inside_the_call() -> None:
-    """One read walks every truncated page and returns the whole frame."""
+    """A resumed read returns only the pages from the saved offset."""
     dataset = _dataset()
     dataset.checkpoint = {"pagination": {"offset": 2}}
     dataset.linked_service.connection.post.side_effect = [
@@ -166,6 +182,35 @@ def test_read_follows_truncated_pages_inside_the_call() -> None:
     assert statements[0].endswith("OFFSET 2")
     assert statements[1].endswith("OFFSET 3")
     assert "pagination" not in dataset.checkpoint
+
+
+def test_read_warns_when_later_pages_have_no_order_by(caplog: pytest.LogCaptureFixture) -> None:
+    """A multi-page read without ORDER BY warns once and still returns the rows."""
+    dataset = _dataset(read=GoldReadSettings(sql="SELECT n FROM gold"))
+    dataset.linked_service.connection.post.side_effect = [
+        _response(_page([[1]], truncated=True)),
+        _response(_page([[2]], truncated=False)),
+    ]
+
+    with caplog.at_level(logging.WARNING):
+        dataset.read()
+
+    assert dataset.output["n"].tolist() == [1, 2]
+    assert caplog.text.count("without ORDER BY") == 1
+
+
+def test_read_does_not_warn_when_sql_orders_rows(caplog: pytest.LogCaptureFixture) -> None:
+    """ORDER BY keeps the offset pages stable, so the read stays quiet."""
+    dataset = _dataset(read=GoldReadSettings(sql="SELECT n FROM gold ORDER BY n"))
+    dataset.linked_service.connection.post.side_effect = [
+        _response(_page([[1]], truncated=True)),
+        _response(_page([[2]], truncated=False)),
+    ]
+
+    with caplog.at_level(logging.WARNING):
+        dataset.read()
+
+    assert "without ORDER BY" not in caplog.text
 
 
 def test_read_keeps_partial_output_when_a_later_page_fails() -> None:

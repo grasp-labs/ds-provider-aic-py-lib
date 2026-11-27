@@ -30,12 +30,18 @@ as ``gold``. ``read()`` rewrites that name to this dataset id. A quoted
 reference to another dataset is rejected here. Any other name is left to
 the caller's fetch grants. The statement is posted to ``POST /query/``.
 ``FetchQueryDeserializer`` turns each response into a frame, and ``read()``
-concatenates truncated pages into ``output``. A result that can span more
-than one page needs ``ORDER BY`` so later ``OFFSET`` pages stay in the same
-order. A failure keeps the pages read in that call and stores the next
-offset in ``checkpoint["pagination"]``. A truncated page with no rows to
-continue from raises ``ReadError`` and leaves that checkpoint in place. A
-finished read clears it.
+concatenates truncated pages into ``output``. On a resumed read, ``output``
+holds only the pages from the saved offset; the caller keeps earlier pages.
+Pass ``checkpoint["pagination"]["offset"]`` to continue, or an empty
+checkpoint to read from the start. Keep the same SQL in settings. The
+offset is not stored with the statement. A result that spans more than one
+page needs ``ORDER BY``. Fetch does not keep a stable row order without it,
+so later ``OFFSET`` pages can skip or repeat rows. ``read()`` logs a warning
+when it continues such a query, and still returns the rows. A failure keeps
+the pages read in that call and stores the next offset in
+``checkpoint["pagination"]``. A truncated page with no rows to continue from
+raises ``ReadError`` and leaves that checkpoint in place. A finished read
+clears it.
 
 ``list()`` pages through ``GET /dataset/``.
 

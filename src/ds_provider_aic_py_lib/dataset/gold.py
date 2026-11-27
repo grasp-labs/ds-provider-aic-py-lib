@@ -8,7 +8,8 @@ The settings hold the published definition from ``ds-pipeline-infra``.
 This package does not own gold and does not write it.
 
 ``read()`` requires SQL and posts it to ``POST /query/``. Truncated pages
-are followed inside that call. ``output`` is the full frame.
+are followed inside that call. A resumed read assigns ``output`` from the
+saved offset only.
 """
 
 from dataclasses import dataclass, field
@@ -28,7 +29,7 @@ from ..linked_service.identity import AICIdentityLinkedService
 from ..serde.deserializer import FetchQueryDeserializer
 from .utils.frame import concat
 from .utils.listing import list_params
-from .utils.sql import qualify, statement
+from .utils.sql import has_order_by, qualify, statement
 
 logger = Logger.get_logger(__name__, package=True)
 
@@ -131,13 +132,20 @@ class AICGoldDataset(
         return True
 
     def read(self) -> None:
-        """Post the required SQL and assign the full result to ``output``.
+        """Post the required SQL and assign this call's result to ``output``.
 
         Fetch stops a response at 100_000 rows or 8 MiB. This call follows
-        truncated pages until the result is complete. Later pages use
-        ``OFFSET``, so a result that can span more than one page needs
-        ``ORDER BY`` to keep a stable row order. A failure keeps the pages
-        already read in ``output`` and the next offset in
+        truncated pages until the result is complete. On a resumed read,
+        ``output`` holds only the pages from the saved offset; the caller
+        keeps earlier pages. Pass ``checkpoint['pagination']['offset']`` to
+        continue, or an empty checkpoint to read from the start. Keep the
+        same SQL in settings. The offset is not stored with the statement.
+
+        Later pages use ``OFFSET``. Fetch does not keep a stable row order
+        unless the SQL has ``ORDER BY``, so those pages can skip or repeat
+        rows. A read that continues without ``ORDER BY`` logs a warning and
+        still returns the rows. A failure keeps the pages already read in
+        this call in ``output`` and the next offset in
         ``checkpoint['pagination']``. A truncated page with no rows to
         continue from raises and leaves that offset in place.
 
@@ -155,8 +163,16 @@ class AICGoldDataset(
             offset = int(saved.get("offset", 0) or 0)
 
         frames: list[pd.DataFrame] = []
+        warned = False
         try:
             while True:
+                if offset > 0 and not warned and not has_order_by(sql):
+                    logger.warning(
+                        "Read continues at OFFSET %s without ORDER BY. "
+                        "Fetch does not keep a stable row order, so pages can skip or repeat rows.",
+                        offset,
+                    )
+                    warned = True
                 body = self._query(statement(sql, offset))
                 frames.append(self.deserializer(body))
                 if not self.deserializer.get_next(body):

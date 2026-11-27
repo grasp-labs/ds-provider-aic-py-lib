@@ -17,6 +17,11 @@ _OTHER_DATASET = re.compile(
     re.IGNORECASE,
 )
 
+_ORDER_BY = re.compile(
+    r"""(?P<literal>'(?:''|[^'])*')|(?P<comment>--[^\n]*)|(?P<order>\bORDER\s+BY\b)""",
+    re.IGNORECASE,
+)
+
 
 def qualify(sql: str, dataset_id: object) -> str:
     """Rewrite ``gold`` to this dataset. A quoted reference to another dataset is rejected."""
@@ -38,6 +43,11 @@ def qualify(sql: str, dataset_id: object) -> str:
         if schema != "gold" or name != own:
             raise ReadError(message="This dataset cannot read another dataset.")
     return scoped
+
+
+def has_order_by(sql: str) -> bool:
+    """Return whether ``sql`` has an ``ORDER BY`` outside strings and line comments."""
+    return any(match.group("order") is not None for match in _ORDER_BY.finditer(sql))
 
 
 def statement(sql: str, offset: int) -> str:
