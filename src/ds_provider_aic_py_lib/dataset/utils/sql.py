@@ -19,7 +19,7 @@ _OTHER_DATASET = re.compile(
 
 
 def qualify(sql: str, dataset_id: object) -> str:
-    """Rewrite ``gold`` to this dataset and reject every other dataset."""
+    """Rewrite ``gold`` to this dataset. A quoted reference to another dataset is rejected."""
     table = "".join(('gold."', str(dataset_id), '"'))
 
     def replace(match: re.Match[str]) -> str:
@@ -41,8 +41,12 @@ def qualify(sql: str, dataset_id: object) -> str:
 
 
 def statement(sql: str, offset: int) -> str:
-    """Return ``sql`` unchanged, or the same statement moved by ``offset`` rows."""
+    """Return ``sql`` unchanged, or the same statement moved by ``offset`` rows.
+
+    The wrapper keeps row order only when ``sql`` has ``ORDER BY``. The newline
+    before the closing parenthesis keeps a trailing ``--`` comment from swallowing it.
+    """
     if offset <= 0:
         return sql
     inner = sql.strip().rstrip(";")
-    return "".join(("SELECT * FROM (", inner, ") AS _aic_page OFFSET ", str(offset)))
+    return "".join(("SELECT * FROM (", inner, "\n) AS _aic_page OFFSET ", str(offset)))

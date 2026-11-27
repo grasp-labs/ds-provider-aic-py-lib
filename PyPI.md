@@ -70,8 +70,11 @@ dataset.output
 - Identity linked service with OAuth2 client credentials and
   username/password login
 - Read-only gold dataset over the fetch API
-- SQL is required. Name this dataset `gold`. `read()` cannot read
-  another dataset
+- SQL is required. Name this dataset `gold`. That name is rewritten to
+  this dataset id. A quoted reference to another dataset is rejected
+  here. Fetch grants decide any other name
+- A result that spans more than one page needs `ORDER BY` so later
+  pages keep a stable row order
 - `read()` deserializes each query page with `FetchQueryDeserializer`
 
 ## Usage

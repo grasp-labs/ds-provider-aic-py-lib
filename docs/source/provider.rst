@@ -26,12 +26,16 @@ Gold dataset
 and ``partition_keys``. Those fields are not applied as writes.
 
 ``read()`` requires ``settings.read.sql``. The statement names this dataset
-as ``gold``. ``read()`` qualifies that table with the dataset id, rejects a
-statement that names another dataset, and posts it to ``POST /query/``.
+as ``gold``. ``read()`` rewrites that name to this dataset id. A quoted
+reference to another dataset is rejected here. Any other name is left to
+the caller's fetch grants. The statement is posted to ``POST /query/``.
 ``FetchQueryDeserializer`` turns each response into a frame, and ``read()``
-concatenates truncated pages into ``output``. A failure keeps those pages
-and stores the next offset in ``checkpoint["pagination"]``. A finished
-read clears that entry.
+concatenates truncated pages into ``output``. A result that can span more
+than one page needs ``ORDER BY`` so later ``OFFSET`` pages stay in the same
+order. A failure keeps the pages read in that call and stores the next
+offset in ``checkpoint["pagination"]``. A truncated page with no rows to
+continue from raises ``ReadError`` and leaves that checkpoint in place. A
+finished read clears it.
 
 ``list()`` pages through ``GET /dataset/``.
 

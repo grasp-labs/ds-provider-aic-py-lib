@@ -18,6 +18,7 @@ from ds_resource_plugin_py_lib.common.resource.errors import NotSupportedError
 from ds_resource_plugin_py_lib.common.resource.linked_service.errors import ConnectionError
 
 from ds_provider_aic_py_lib.dataset.gold import AICGoldDataset, AICGoldDatasetSettings, GoldListSettings, GoldReadSettings
+from ds_provider_aic_py_lib.dataset.utils.sql import statement
 from ds_provider_aic_py_lib.enums import HistoryMode, Layer, PublishMode, ResourceType
 from ds_provider_aic_py_lib.linked_service.identity import (
     AICIdentityLinkedService,
@@ -113,13 +114,19 @@ def test_read_qualifies_gold_with_the_dataset_id() -> None:
     ],
 )
 def test_read_rejects_another_dataset(sql: str) -> None:
-    """This dataset cannot read any other gold, silver, or bronze dataset."""
+    """A quoted reference to another gold, silver, or bronze dataset is rejected."""
     dataset = _dataset(read=GoldReadSettings(sql=sql))
 
     with pytest.raises(ReadError, match="another dataset"):
         dataset.read()
 
     dataset.linked_service.connection.post.assert_not_called()
+
+
+def test_statement_keeps_a_trailing_line_comment() -> None:
+    """A trailing ``--`` comment must not swallow the offset wrapper."""
+    assert statement("SELECT * FROM gold -- hi", 5) == "SELECT * FROM (SELECT * FROM gold -- hi\n) AS _aic_page OFFSET 5"
+    assert statement("SELECT * FROM gold", 0) == "SELECT * FROM gold"
 
 
 def test_read_requires_sql() -> None:
@@ -177,15 +184,44 @@ def test_read_keeps_partial_output_when_a_later_page_fails() -> None:
     assert dataset.operation.success is False
 
 
-def test_read_stops_when_a_truncated_page_has_no_rows() -> None:
-    """An empty truncated page does not request another offset."""
+def test_read_raises_when_a_truncated_page_has_no_rows() -> None:
+    """A truncated page with no continuation fails and keeps the checkpoint."""
     dataset = _dataset()
+    dataset.checkpoint = {"pagination": {"offset": 4}}
     dataset.linked_service.connection.post.return_value = _response(_page([], truncated=True))
+
+    with pytest.raises(ReadError, match="no rows to continue"):
+        dataset.read()
+
+    assert dataset.checkpoint["pagination"] == {"offset": 4}
+    dataset.linked_service.connection.post.assert_called_once()
+    assert dataset.operation.success is False
+
+
+def test_read_keeps_the_checkpoint_when_a_later_page_cannot_continue() -> None:
+    """Rows already fetched stay in output. The offset of the bad page stays in the checkpoint."""
+    dataset = _dataset()
+    dataset.linked_service.connection.post.side_effect = [
+        _response(_page([[3]], truncated=True)),
+        _response({"columns": [{"name": "n", "type": "BIGINT"}], "rows": [], "truncated": True, "elapsed_ms": 1}),
+    ]
+
+    with pytest.raises(ReadError, match="no rows to continue"):
+        dataset.read()
+
+    assert dataset.output["n"].tolist() == [3]
+    assert dataset.checkpoint["pagination"] == {"offset": 1}
+
+
+def test_read_leaves_an_unquoted_dataset_name_to_fetch() -> None:
+    """An unquoted dataset name is not rejected here. Fetch grants decide it."""
+    dataset = _dataset(read=GoldReadSettings(sql="SELECT * FROM silver.foo"))
+    dataset.linked_service.connection.post.return_value = _response(_page([[1]], truncated=False))
 
     dataset.read()
 
-    assert dataset.output.empty
-    dataset.linked_service.connection.post.assert_called_once()
+    posted = dataset.linked_service.connection.post.call_args.kwargs["json"]["sql"]
+    assert posted == "SELECT * FROM silver.foo"
 
 
 def test_read_wraps_a_bad_later_page_and_keeps_earlier_rows() -> None:

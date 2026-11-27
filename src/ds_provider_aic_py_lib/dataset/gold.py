@@ -134,12 +134,16 @@ class AICGoldDataset(
         """Post the required SQL and assign the full result to ``output``.
 
         Fetch stops a response at 100_000 rows or 8 MiB. This call follows
-        truncated pages until the result is complete. A failure keeps the
-        pages already read in ``output`` and the next offset in
-        ``checkpoint['pagination']``.
+        truncated pages until the result is complete. Later pages use
+        ``OFFSET``, so a result that can span more than one page needs
+        ``ORDER BY`` to keep a stable row order. A failure keeps the pages
+        already read in ``output`` and the next offset in
+        ``checkpoint['pagination']``. A truncated page with no rows to
+        continue from raises and leaves that offset in place.
 
         Raises:
-            ReadError: SQL is missing, names another dataset, or fetch rejects a page.
+            ReadError: SQL is missing, a quoted reference names another dataset, fetch rejects a page, or a truncated page
+                cannot be continued.
         """
         if self.settings.read is None or not self.settings.read.sql.strip():
             raise ReadError(message="SQL is required.")
@@ -159,7 +163,7 @@ class AICGoldDataset(
                     break
                 cursor = self.deserializer.get_end_cursor(body, offset=offset)
                 if cursor is None:
-                    break
+                    raise ReadError(message="Fetch truncated the result but returned no rows to continue from.")
                 offset = int(cursor)
                 self.checkpoint["pagination"] = {"offset": offset}
         except Exception as exc:
